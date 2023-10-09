@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="300">
+    <properties>
+        <property name="LOG_HOME">${env:LOG_HOME:-D:\}/logs/tika-server</property>
+        <!--<property name="PATTERN_LAYOUT">%date{yyyy-MM-dd HH:mm:ss} %level [%file:%line] - %msg%n</property>-->
+        <property name="PATTERN_LAYOUT">%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [TRACE_ID:%X{traceId}] [%file:%line] ： %msg %n
+        </property>
+    </properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${PATTERN_LAYOUT}"/>
+        </Console>
+
+        <!--warn及以下日志-->
+        <RollingFile name="INFO" fileName="${LOG_HOME}/info.log" filePattern="${LOG_HOME}/info-%d{yyyyMMdd}-%i.log.gz">
+            <PatternLayout charset="UTF-8" pattern="${PATTERN_LAYOUT}"/>
+            <Filters>
+                <!--如果是error级别拒绝-->
+                <ThresholdFilter level="error" onMatch="DENY" onMismatch="NEUTRAL"/>
+                <!--如果是debug\info\warn输出-->
+                <ThresholdFilter level="debug" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+            <Policies>
+                <TimeBasedTriggeringPolicy modulate="true" interval="1"/>
+                <!--单个文件大小-->
+                <SizeBasedTriggeringPolicy size="500MB"/>
+            </Policies>
+            <!--保存日志文件个数-->
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_HOME}">
+                    <IfFileName glob="info-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <!--error级别日志输出-->
+        <RollingFile name="ERROR" fileName="${LOG_HOME}/error.log"
+                     filePattern="${LOG_HOME}/error-%d{yyyyMMdd}-%i.log.gz">
+            <PatternLayout charset="UTF-8" pattern="${PATTERN_LAYOUT}"/>
+            <Filters>
+                <ThresholdFilter level="error" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="500MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_HOME}">
+                    <IfFileName glob="error-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+    </Appenders>
+    <Loggers>
+        <Root level="warn">
+            <!-- 这里是输入到控制台-->
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="INFO"/>
+            <AppenderRef ref="ERROR"/>
+        </Root>
+        <logger name="cn.nn200433" level="debug" additivity="false">
+            <appender-ref ref="Console"/>
+        </logger>
+        <logger name="org.apache.tika" level="debug" additivity="false">
+            <appender-ref ref="Console"/>
+        </logger>
+    </Loggers>
+</Configuration>
