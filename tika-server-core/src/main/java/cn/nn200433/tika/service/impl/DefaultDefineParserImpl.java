@@ -2,6 +2,7 @@ package cn.nn200433.tika.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import cn.nn200433.tika.config.TikaProperties;
+import cn.nn200433.tika.entity.ToolsPathProperties;
 import cn.nn200433.tika.service.DefineParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,24 +34,29 @@ public class DefaultDefineParserImpl implements DefineParser {
     public AutoDetectParser build() {
         AutoDetectParser parser = null;
         try {
-            final String       tessOcrPath        = properties.getTessOcrPath();
-            final String       imageMagickPath    = properties.getImageMagickPath();
-            PDFParser          pdfParser          = new PDFParser();
-            OfficeParser       officeParser       = new OfficeParser();
-            TXTParser          txtParser          = new TXTParser();
-            ImageParser        imageParser        = new ImageParser();
-            AudioParser        audioParser        = new AudioParser();
-            Mp3Parser          mp3Parser          = new Mp3Parser();
-            MP4Parser          mp4Parser          = new MP4Parser();
-            FLVParser          flvParser          = new FLVParser();
-            TesseractOCRParser tesseractOCRParser = new TesseractOCRParser();
+            final ToolsPathProperties toolsPath          = properties.getToolsPath();
+            PDFParser                 pdfParser          = new PDFParser();
+            OfficeParser              officeParser       = new OfficeParser();
+            TXTParser                 txtParser          = new TXTParser();
+            ImageParser               imageParser        = new ImageParser();
+            AudioParser               audioParser        = new AudioParser();
+            Mp3Parser                 mp3Parser          = new Mp3Parser();
+            MP4Parser                 mp4Parser          = new MP4Parser();
+            FLVParser                 flvParser          = new FLVParser();
+            TesseractOCRParser        tesseractOCRParser = new TesseractOCRParser();
+            String                    tessOcrPath        = "";
+            String                    imageMagickPath    = "";
+            if (null != toolsPath) {
+                tessOcrPath     = toolsPath.getTessOcr();
+                imageMagickPath = toolsPath.getImageMagick();
+            }
             if (StrUtil.isNotBlank(tessOcrPath)) {
                 tesseractOCRParser.setTesseractPath(tessOcrPath);
             }
             if (StrUtil.isNotBlank(imageMagickPath)) {
-                tesseractOCRParser.setPreloadLangs(Boolean.TRUE);
                 tesseractOCRParser.setImageMagickPath(imageMagickPath);
             }
+            // tesseractOCRParser.setPreloadLangs(Boolean.TRUE);
             tesseractOCRParser.initialize(null);
             parser = new AutoDetectParser(txtParser, pdfParser, officeParser, imageParser, tesseractOCRParser, audioParser, mp3Parser, mp4Parser, flvParser);
         } catch (TikaConfigException e) {

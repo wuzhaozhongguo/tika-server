@@ -7,27 +7,32 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.hutool.http.HttpUtil;
 import cn.nn200433.tika.service.DefineParser;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tika.Tika;
 import org.apache.tika.langdetect.tika.LanguageIdentifier;
 import org.apache.tika.metadata.Metadata;
-import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.Parser;
 import org.apache.tika.parser.ocr.TesseractOCRConfig;
+import org.apache.tika.parser.ocr.TesseractOCRParser;
+import org.apache.tika.parser.pdf.PDFParser;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.sax.BodyContentHandler;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
@@ -39,6 +44,15 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class TikaUtil {
+
+    private static final String                TIKA_KEY               = "tika.key";
+    private static final String                TIKA_PARSER_KEY        = "tika.parser.key";
+    private static final String                TIKA_LOADED_PARSER_KEY = "tika.parser.loaded.key";
+    private static final Cache<String, Object> CACHE_MAP              = Caffeine.newBuilder()
+            .initialCapacity(5)
+            .maximumSize(10)
+            .expireAfterWrite(Integer.MAX_VALUE, TimeUnit.DAYS)
+            .build();
 
     /**
      * 解析文件
@@ -108,22 +122,61 @@ public class TikaUtil {
      */
     public static FileInfo parseStream(InputStream stream, Map<Class, Object> parseOptions, Boolean clean) {
         String                 parseResult      = StrUtil.EMPTY;
-        MediaType              mediaType        = null;
+        String                 mediaType        = null;
         String                 language         = StrUtil.EMPTY;
         final AutoDetectParser autoDetectParser = getParser();
         BodyContentHandler     handler          = new BodyContentHandler(Integer.MAX_VALUE);
         Metadata               metadata         = new Metadata();
         ParseContext           parseContext     = new ParseContext();
         fillConfig(parseContext, parseOptions);
-        try (InputStream input = stream) {
+        try (BufferedInputStream input = new BufferedInputStream(stream)) {
             autoDetectParser.parse(input, handler, metadata, parseContext);
-            parseResult = clean ? StrUtil.cleanBlank(handler.toString()) : handler.toString();
-            mediaType   = autoDetectParser.getDetector().detect(input, metadata);
+            final String content = handler.toString();
+            parseResult = clean ? StrUtil.cleanBlank(content) : content;
             language    = new LanguageIdentifier(parseResult).getLanguage();
+            // ContentInfo contentInfo = new ContentInfoUtil().findMatch(input);
+            // mediaType = contentInfo.getMimeType();
         } catch (Exception e) {
             log.error("---> 文档信息抽取异常", e);
         }
         return new FileInfo(mediaType, language, parseResult);
+    }
+
+    /**
+     * 初始化解析器
+     *
+     * @author song_jx
+     */
+    public static void initParser() {
+        final AutoDetectParser parser = SpringUtil.getBean(DefineParser.class).build();
+        final Set<String> loadedClassSet = parser.getParsers()
+                .values()
+                .stream()
+                .map(c -> c.getClass().getName())
+                .collect(Collectors.toSet());
+        CACHE_MAP.put(TIKA_PARSER_KEY, parser);
+        CACHE_MAP.put(TIKA_LOADED_PARSER_KEY, loadedClassSet);
+        // CACHE_MAP.put(TIKA_KEY, new Tika());
+    }
+
+    /**
+     * 获取解析器
+     *
+     * @return {@link AutoDetectParser }
+     * @author song_jx
+     */
+    public static Tika getTika() {
+        return (Tika) CACHE_MAP.get(TIKA_KEY, k -> new Tika());
+    }
+
+    /**
+     * 获取解析器
+     *
+     * @return {@link AutoDetectParser }
+     * @author song_jx
+     */
+    public static AutoDetectParser getParser() {
+        return (AutoDetectParser) CACHE_MAP.get(TIKA_PARSER_KEY, k -> SpringUtil.getBean(DefineParser.class).build());
     }
 
     /**
@@ -137,11 +190,13 @@ public class TikaUtil {
      * @author song_jx
      */
     private static void fillConfig(ParseContext parseContext, Map<Class, Object> parseOptions) {
-        final Map<MediaType, Parser> loadedParserMap = getParser().getParsers();
-        final Set<String> loadedClassSet = loadedParserMap.values().stream().map(c -> c.getClass()
-                .getName()).collect(Collectors.toSet());
+        final Set<String> loadedClassSet = (Set<String>) CACHE_MAP.get(TIKA_LOADED_PARSER_KEY, k -> getParser().getParsers()
+                .values()
+                .stream()
+                .map(c -> c.getClass().getName())
+                .collect(Collectors.toSet()));
         // 如果存在ocr解析，添加一些参数
-        if (loadedClassSet.contains(TesseractOCRConfig.class.getName())) {
+        if (loadedClassSet.contains(TesseractOCRParser.class.getName())) {
             TesseractOCRConfig ocrConfig = new TesseractOCRConfig();
             ocrConfig.setEnableImagePreprocessing(Boolean.TRUE);
             // chi_sim.traineddata（简体，仅对宋体而言，像素 >= 300 dpi：识别率高达100%，同时对英文及阿拉伯数字识别率高达90%以上）
@@ -154,7 +209,7 @@ public class TikaUtil {
             parseContext.set(TesseractOCRConfig.class, ocrConfig);
         }
         // 如果存在pdf解析，添加一些参数
-        if (loadedClassSet.contains(PDFParserConfig.class.getName())) {
+        if (loadedClassSet.contains(PDFParser.class.getName())) {
             PDFParserConfig pdfConfig = new PDFParserConfig();
             // 如果为true，则提取文本内联嵌入的OBXImages。
             pdfConfig.setExtractInlineImages(Boolean.TRUE);
@@ -173,16 +228,6 @@ public class TikaUtil {
     }
 
     /**
-     * 获取解析器
-     *
-     * @return {@link AutoDetectParser }
-     * @author song_jx
-     */
-    private static AutoDetectParser getParser() {
-        return SpringUtil.getBean(DefineParser.class).build();
-    }
-
-    /**
      * 文件信息
      *
      * @author song_jx
@@ -193,9 +238,33 @@ public class TikaUtil {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class FileInfo {
-        private MediaType mediaType;
-        private String    language;
-        private String    content;
+        /** 文件名 */
+        private String fileName;
+        /** 介质类型 */
+        private String mediaType;
+        /** 语言 */
+        private String language;
+        /** 内容 */
+        private String content;
+
+        public FileInfo(String mediaType, String language, String content) {
+            this.mediaType = mediaType;
+            this.language  = language;
+            this.content   = content;
+        }
+
+        /**
+         * 新文件名
+         *
+         * @param fileName 文件名
+         * @return {@link FileInfo }
+         * @author song_jx
+         */
+        public FileInfo fileName(String fileName) {
+            this.fileName = fileName;
+            return this;
+        }
+
     }
 
 }

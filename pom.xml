@@ -39,6 +39,8 @@
         <jai-imageio.version>1.4.0</jai-imageio.version>
         <!-- checkstyle -->
         <checkstyle.version>8.14</checkstyle.version>
+        <!-- 简单的文件类型库 -->
+        <simplemagic.version>1.17</simplemagic.version>
         <!-- maven插件 -->
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
         <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
@@ -58,6 +60,15 @@
                 <groupId>org.apache.tika</groupId>
                 <artifactId>tika-bom</artifactId>
                 <version>${tika.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- hutool工具类 -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-bom</artifactId>
+                <version>${hutool.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -110,11 +121,11 @@
                 <version>${jai-imageio.version}</version>
             </dependency>
 
-            <!-- hutool工具类 -->
+            <!-- 文件类型检测 -->
             <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-all</artifactId>
-                <version>${hutool.version}</version>
+                <groupId>com.j256.simplemagic</groupId>
+                <artifactId>simplemagic</artifactId>
+                <version>${simplemagic.version}</version>
             </dependency>
         </dependencies>
 

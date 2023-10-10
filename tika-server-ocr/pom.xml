@@ -11,6 +11,8 @@
 
     <groupId>cn.nn200433</groupId>
     <artifactId>tika-server-ocr</artifactId>
+    <version>${revision}</version>
+    <packaging>jar</packaging>
 
 
 </project>

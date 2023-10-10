@@ -1,5 +1,12 @@
 server:
   port: 9090
 tika:
-  tess-ocr-path: E:\Program Files\Tesseract-OCR
-  image-magick-path: E:\Program Files\ImageMagick-7.1.1-Q16-HDRI
+  thread:
+    name: tika
+    core-pool-size: 5
+    max-pool-size: 10
+    queue-capacity: 20
+    keep-alive-seconds: 60
+  tools-path:
+    tess-ocr: E:\Program Files\Tesseract-OCR
+    image-magick: E:\Program Files\ImageMagick-7.1.1-Q16-HDRI

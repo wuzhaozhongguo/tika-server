@@ -1,2 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-  cn.nn200433.tika.config.TikaProperties
+  cn.nn200433.tika.config.TikaAutoConfig
