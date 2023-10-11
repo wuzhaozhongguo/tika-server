@@ -70,8 +70,8 @@ tika-server
 
 > 这里的辅助插件为 图像处理 、 音视频处理 等第三方插件。（即需要命令行调用，Java 不好实现的）
 
-1. [Tesseract-OCR 安装](doc/install/Tesseract-OCR 安装.md)
-2. [ImageMagick 安装](doc/install/ImageMagick 安装.md)
+1. [Tesseract-OCR 安装](doc/install/Tesseract-OCR%20安装.md)
+2. [ImageMagick 安装](doc/install/ImageMagick%20安装.md)
 
 ### 配置
 
