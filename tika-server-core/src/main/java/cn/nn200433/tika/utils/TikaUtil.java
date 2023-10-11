@@ -9,6 +9,7 @@ import cn.hutool.http.HttpUtil;
 import cn.nn200433.tika.service.DefineParser;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.j256.simplemagic.ContentInfoUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,7 @@ import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.sax.BodyContentHandler;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -75,6 +77,7 @@ public class TikaUtil {
     public static FileInfo parseFile(File filePath) {
         FileInfo fileInfo = new FileInfo();
         try {
+            // final byte[] bytes = FileUtil.readBytes(filePath);
             fileInfo = parseStream(new FileInputStream(filePath));
         } catch (FileNotFoundException e) {
             log.error("---> 文档信息抽取异常", e);
@@ -121,6 +124,19 @@ public class TikaUtil {
      * @author song_jx
      */
     public static FileInfo parseStream(InputStream stream, Map<Class, Object> parseOptions, Boolean clean) {
+        return parseBytes(IoUtil.readBytes(stream), parseOptions, clean);
+    }
+
+    /**
+     * 解析文件流
+     *
+     * @param bytes        字节数据
+     * @param parseOptions 解析选项
+     * @param clean        是否清理无效字符
+     * @return {@link FileInfo }
+     * @author song_jx
+     */
+    public static FileInfo parseBytes(byte[] bytes, Map<Class, Object> parseOptions, Boolean clean) {
         String                 parseResult      = StrUtil.EMPTY;
         String                 mediaType        = null;
         String                 language         = StrUtil.EMPTY;
@@ -129,13 +145,12 @@ public class TikaUtil {
         Metadata               metadata         = new Metadata();
         ParseContext           parseContext     = new ParseContext();
         fillConfig(parseContext, parseOptions);
-        try (BufferedInputStream input = new BufferedInputStream(stream)) {
-            autoDetectParser.parse(input, handler, metadata, parseContext);
+        try (InputStream is = new BufferedInputStream(new ByteArrayInputStream(bytes))) {
+            autoDetectParser.parse(is, handler, metadata, parseContext);
             final String content = handler.toString();
             parseResult = clean ? StrUtil.cleanBlank(content) : content;
             language    = new LanguageIdentifier(parseResult).getLanguage();
-            // ContentInfo contentInfo = new ContentInfoUtil().findMatch(input);
-            // mediaType = contentInfo.getMimeType();
+            mediaType   = new ContentInfoUtil().findMatch(bytes).getMimeType();
         } catch (Exception e) {
             log.error("---> 文档信息抽取异常", e);
         }
